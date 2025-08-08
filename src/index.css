@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 248 250 252;
+  --foreground: 222 47% 11%;
+  --muted: 226 232 240;
+  --muted-foreground: 226 47% 45%;
+  --popover: 255 255 255;
+  --popover-foreground: 222 47% 11%;
+  --card: 255 255 255;
+  --card-foreground: 222 47% 11%;
+  --border: 203 213 225;
+  --input: 203 213 225;
+  --primary: 81 48% 51%;
+  --primary-foreground: 255 255 255;
+  --secondary: 81 57% 32%;
+  --secondary-foreground: 255 255 255;
+  --accent: 241 245 249;
+  --accent-foreground: 15 23 42;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 203 213 225;
+  --radius: 0.5rem;
+  --heading-foreground: 222 47% 11%;
+}
+
+.dark {
+  --background: 2 6% 14%;
+  --foreground: 210 20% 98%;
+  --muted: 215 28% 17%;
+  --muted-foreground: 217 19% 60%;
+  --popover: 224 71% 4%;
+  --popover-foreground: 210 20% 98%;
+  --card: 215 28% 17%;
+  --card-foreground: 210 20% 98%;
+  --border: 215 28% 23%;
+  --input: 215 28% 23%;
+  --accent: 215 28% 23%;
+  --accent-foreground: 210 20% 98%;
+  --destructive: 0 63% 40%;
+  --destructive-foreground: 210 20% 98%;
+  --ring: 215 28% 23%;
+  --heading-foreground: 210 20% 98%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6, .card-title {
+    color: hsl(var(--heading-foreground));
+  }
+  .card, .bg-card {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--border));
+  }
+  .border {
+    border-color: hsl(var(--border));
+  }
+  .bg-muted {
+    background-color: hsl(var(--muted));
+  }
+}
+
+.brand-gradient {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
