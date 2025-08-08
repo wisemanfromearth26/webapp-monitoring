@@ -147,6 +147,28 @@ export const DataProvider = ({ children }) => {
         const schedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setSchedule(schedules[0] || null); // Ambil jadwal terbaru
       });
+
+      // Initialize settings if they don't exist
+      const settingsSnapshot = await getDocs(collection(db, 'settings'));
+      if (settingsSnapshot.empty) {
+        const defaultSettings = {
+          companyName: 'Driver Sales Monitoring',
+          logo: '',
+          primaryColor: '#0ea5e9',
+          secondaryColor: '#64748b',
+          currency: 'IDR',
+          autoResetEnabled: false,
+          autoResetTime: '00:00',
+          payrollDate: 1,
+          minimumAttendance: 20,
+          bonusThreshold: 100000,
+          bonusAmount: 50000,
+          baseSalary: 3000000,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await addDoc(collection(db, 'settings'), defaultSettings);
+      }
     } catch (error) {
       console.error('Error initializing data:', error);
     }
@@ -189,9 +211,14 @@ export const DataProvider = ({ children }) => {
   const addProduct = async (product) => {
     try {
       console.log('Adding product to Firestore:', product);
-      const docRef = await addDoc(collection(db, 'products'), product);
+      const productData = {
+        ...product,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      const docRef = await addDoc(collection(db, 'products'), productData);
       console.log('Product added successfully with ID:', docRef.id);
-      return { id: docRef.id, ...product };
+      return { id: docRef.id, ...productData };
     } catch (error) {
       console.error('Error adding product:', error);
       console.error('Error details:', error.code, error.message);
@@ -202,7 +229,11 @@ export const DataProvider = ({ children }) => {
   const updateProduct = async (id, updates) => {
     try {
       const productRef = doc(db, 'products', id);
-      await updateDoc(productRef, updates);
+      const updatedData = {
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+      await updateDoc(productRef, updatedData);
     } catch (error) {
       console.error('Error updating product:', error);
       throw error;
@@ -479,6 +510,90 @@ export const DataProvider = ({ children }) => {
     }
   };
 
+  const generatePayroll = async (driverId, period) => {
+    try {
+      // Get all sales for the driver in the period
+      const [year, month] = period.split('-');
+      const startDate = `${period}-01`;
+      const endDate = `${period}-${new Date(parseInt(year), parseInt(month), 0).getDate()}`;
+      
+      const salesQuery = query(
+        collection(db, 'sales'),
+        where('driverId', '==', driverId),
+        where('date', '>=', startDate),
+        where('date', '<=', endDate)
+      );
+
+      const attendanceQuery = query(
+        collection(db, 'attendance'),
+        where('driverId', '==', driverId),
+        where('date', '>=', startDate),
+        where('date', '<=', endDate)
+      );
+
+      const [salesDocs, attendanceDocs, settingsDocs] = await Promise.all([
+        getDocs(salesQuery),
+        getDocs(attendanceQuery),
+        getDocs(collection(db, 'settings'))
+      ]);
+
+      const settings = settingsDocs.docs[0]?.data() || {};
+      const driver = drivers.find(d => d.id === driverId);
+
+      if (!driver) throw new Error('Driver not found');
+
+      // Calculate total fees from sales
+      const totalFee = salesDocs.docs.reduce((sum, doc) => {
+        const sale = doc.data();
+        return sum + (sale.totalFee || 0);
+      }, 0);
+
+      // Calculate attendance bonus
+      const uniqueDates = new Set(attendanceDocs.docs.map(doc => doc.data().date));
+      const daysPresent = uniqueDates.size;
+      const bonus = daysPresent >= (settings.minimumAttendance || 20) ? (settings.bonusAmount || 0) : 0;
+
+      const payrollData = {
+        driverId,
+        driverName: driver.name,
+        period,
+        baseSalary: driver.type === 'Dedicated' ? (settings.baseSalary || 0) : 0,
+        totalFee,
+        bonus,
+        deductions: 0,
+        netSalary: (driver.type === 'Dedicated' ? (settings.baseSalary || 0) : 0) + totalFee + bonus,
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const docRef = await addDoc(collection(db, 'payroll'), payrollData);
+      return { id: docRef.id, ...payrollData };
+    } catch (error) {
+      console.error('Error generating payroll:', error);
+      throw error;
+    }
+  };
+
+  const updatePayrollStatus = async (payrollId, status) => {
+    try {
+      const payrollRef = doc(db, 'payroll', payrollId);
+      const updates = {
+        status,
+        updatedAt: new Date().toISOString()
+      };
+      
+      if (status === 'paid') {
+        updates.paidAt = new Date().toISOString();
+      }
+      
+      await updateDoc(payrollRef, updates);
+    } catch (error) {
+      console.error('Error updating payroll status:', error);
+      throw error;
+    }
+  };
+
   const value = {
     products,
     drivers,
@@ -504,7 +619,9 @@ export const DataProvider = ({ children }) => {
     generateSchedule,
     resetSchedule,
     factoryReset,
-    getHistoricalData
+    getHistoricalData,
+    generatePayroll,
+    updatePayrollStatus
   };
 
   return (
