@@ -1,4 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { auth, db } from '../firebase';
+import { 
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -11,70 +18,114 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null); // 'admin' atau 'driver'
+  const [userDetails, setUserDetails] = useState(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
-  }, []);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Cek apakah user adalah admin
+        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+        if (adminDoc.exists()) {
+          setCurrentUser(user);
+          setUserRole('admin');
+          setUserDetails(adminDoc.data());
+        } else {
+          // Jika bukan admin, logout
+          await signOut(auth);
+          setCurrentUser(null);
+          setUserRole(null);
+          setUserDetails(null);
+        }
+      } else {
+        // Jika tidak ada user yang login via Firebase Auth
+        // tetap pertahankan driver session jika ada
+        if (userRole !== 'driver') {
+          setCurrentUser(null);
+          setUserRole(null);
+          setUserDetails(null);
+        }
+      }
+      setLoading(false);
+    });
 
-  const login = (username, password) => {
-    // Admin user remains hardcoded for initial access
-    const adminUser = { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Admin Utama' };
-    
-    // Check for admin login
-    if (username === adminUser.username && password === adminUser.password) {
-      const userWithoutPassword = { ...adminUser };
-      delete userWithoutPassword.password;
-      setUser(userWithoutPassword);
-      localStorage.setItem('currentUser', JSON.stringify(userWithoutPassword));
-      return { success: true, user: userWithoutPassword };
-    }
+    return unsubscribe;
+  }, [userRole]);
 
-    // Check for driver login from localStorage
-    const drivers = JSON.parse(localStorage.getItem('drivers')) || [];
-    const foundDriver = drivers.find(d => d.username === username && d.password === password);
-    
-    if (foundDriver) {
-      const driverUser = {
-        id: foundDriver.id,
-        username: foundDriver.username,
-        role: 'driver',
-        name: foundDriver.name,
-        location: foundDriver.location,
-        type: foundDriver.type
-      };
-      setUser(driverUser);
-      localStorage.setItem('currentUser', JSON.stringify(driverUser));
-      return { success: true, user: driverUser };
+  // Fungsi untuk login admin
+  const adminLogin = async (email, password) => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Verifikasi bahwa user adalah admin
+      const adminDoc = await getDoc(doc(db, 'admins', userCredential.user.uid));
+      if (!adminDoc.exists()) {
+        await signOut(auth);
+        throw new Error('Unauthorized access');
+      }
+      setUserRole('admin');
+      setUserDetails(adminDoc.data());
+      return userCredential;
+    } catch (error) {
+      console.error('Admin login error:', error);
+      throw error;
     }
-    
-    return { success: false, error: 'Username atau password salah' };
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('currentUser');
-  };
-  
-  const verifyPassword = (password) => {
-    const adminUser = { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Admin Utama' };
-    if (user && user.role === 'admin' && password === adminUser.password) {
-      return true;
+  // Fungsi untuk login driver
+  const driverLogin = async (phone, password) => {
+    try {
+      // Cari driver berdasarkan nomor telepon
+      const driversRef = collection(db, 'drivers');
+      const q = query(driversRef, where('phone', '==', phone));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        throw new Error('Driver not found');
+      }
+
+      const driverDoc = querySnapshot.docs[0];
+      const driverData = driverDoc.data();
+
+      // Verifikasi password
+      if (driverData.password !== password) {
+        throw new Error('Invalid password');
+      }
+
+      // Set user role dan details
+      setUserRole('driver');
+      setUserDetails({ id: driverDoc.id, ...driverData });
+      setCurrentUser({ id: driverDoc.id, ...driverData });
+      return driverData;
+    } catch (error) {
+      console.error('Driver login error:', error);
+      throw error;
     }
-    return false;
+  };
+
+  const logout = async () => {
+    try {
+      if (userRole === 'admin') {
+        await signOut(auth);
+      }
+      setCurrentUser(null);
+      setUserRole(null);
+      setUserDetails(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    }
   };
 
   const value = {
-    user,
-    login,
+    currentUser,
+    userRole,
+    userDetails,
+    adminLogin,
+    driverLogin,
     logout,
-    loading,
-    verifyPassword
+    loading
   };
 
   return (

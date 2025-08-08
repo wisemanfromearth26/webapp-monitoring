@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
@@ -8,17 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, EyeOff, LogIn, Users, BarChart3, MapPin } from 'lucide-react';
 
 const LoginPage = () => {
-  const { user, login } = useAuth();
-  const [username, setUsername] = useState('');
+  const { currentUser, userRole, adminLogin, driverLogin } = useAuth();
+  const [loginType, setLoginType] = useState('admin');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  if (user) {
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/driver'} replace />;
+  if (currentUser) {
+    return <Navigate to={userRole === 'admin' ? '/admin' : '/driver'} replace />;
   }
 
   const handleSubmit = async (e) => {
@@ -26,23 +29,24 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const result = login(username, password);
-      if (result.success) {
+      if (loginType === 'admin') {
+        await adminLogin(email, password);
         toast({
           title: "Login Berhasil!",
-          description: `Selamat datang, ${result.user.name}!`,
+          description: "Selamat datang di Dashboard Admin",
         });
       } else {
+        await driverLogin(phone, password);
         toast({
-          title: "Login Gagal",
-          description: result.error,
-          variant: "destructive",
+          title: "Login Berhasil!",
+          description: "Selamat datang di Dashboard Driver",
         });
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast({
-        title: "Error",
-        description: "Terjadi kesalahan saat login",
+        title: "Login Gagal",
+        description: error.message || "Terjadi kesalahan saat login",
         variant: "destructive",
       });
     } finally {
@@ -50,12 +54,14 @@ const LoginPage = () => {
     }
   };
 
-  const demoLogin = (role) => {
-    if (role === 'admin') {
-      setUsername('admin');
+  const demoLogin = (type) => {
+    if (type === 'admin') {
+      setLoginType('admin');
+      setEmail('admin@example.com');
       setPassword('admin123');
     } else {
-      setUsername('budi_s');
+      setLoginType('driver');
+      setPhone('081234567890');
       setPassword('driver123');
     }
   };
@@ -133,60 +139,84 @@ const LoginPage = () => {
                 <p className="text-slate-600">Silakan masuk untuk melanjutkan</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Masukkan username"
-                    required
-                    className="h-12"
-                  />
-                </div>
+              <Tabs defaultValue="admin" value={loginType} onValueChange={setLoginType}>
+                <TabsList className="grid grid-cols-2 mb-4">
+                  <TabsTrigger value="admin">Admin</TabsTrigger>
+                  <TabsTrigger value="driver">Driver</TabsTrigger>
+                </TabsList>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Masukkan password"
-                      required
-                      className="h-12 pr-12"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <TabsContent value="admin">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="admin@example.com"
+                        required
+                        className="h-12"
+                      />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="driver">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Nomor Telepon</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="081234567890"
+                        required
+                        className="h-12"
+                      />
+                    </div>
+                  </TabsContent>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Masukkan password"
+                        required
+                        className="h-12 pr-12"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-12 brand-gradient text-white font-semibold hover:opacity-90 transition-opacity"
-                >
-                  {loading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Memproses...
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <LogIn className="w-5 h-5" />
-                      Masuk
-                    </div>
-                  )}
-                </Button>
-              </form>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-12 brand-gradient text-white font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    {loading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Memproses...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <LogIn className="w-5 h-5" />
+                        Masuk
+                      </div>
+                    )}
+                  </Button>
+                </form>
+              </Tabs>
 
               <div className="space-y-3">
                 <div className="relative">

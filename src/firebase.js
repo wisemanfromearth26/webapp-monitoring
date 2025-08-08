@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA42qs6cf73Cu7VsERdK8HgmnP9Ttgfuq4",
@@ -17,7 +17,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Enable offline persistence
+// Enable offline persistence untuk Firestore
 enableIndexedDbPersistence(db)
   .catch((err) => {
     if (err.code === 'failed-precondition') {
@@ -25,6 +25,12 @@ enableIndexedDbPersistence(db)
     } else if (err.code === 'unimplemented') {
       console.warn('Browser does not support persistence');
     }
+  });
+
+// Enable persistence untuk Authentication
+setPersistence(auth, browserLocalPersistence)
+  .catch((err) => {
+    console.warn('Error enabling auth persistence:', err);
   });
 
 export { db, auth };
