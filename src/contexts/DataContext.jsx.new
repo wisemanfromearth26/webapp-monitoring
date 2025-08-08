@@ -188,13 +188,10 @@ export const DataProvider = ({ children }) => {
 
   const addProduct = async (product) => {
     try {
-      console.log('Adding product to Firestore:', product);
       const docRef = await addDoc(collection(db, 'products'), product);
-      console.log('Product added successfully with ID:', docRef.id);
       return { id: docRef.id, ...product };
     } catch (error) {
       console.error('Error adding product:', error);
-      console.error('Error details:', error.code, error.message);
       throw error;
     }
   };

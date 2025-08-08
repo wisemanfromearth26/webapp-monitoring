@@ -32,10 +32,12 @@ const ProductManagement = () => {
     image: ''
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Starting product submission...');
     
     if (!formData.name || !formData.price || !formData.fee) {
+      console.warn('Validation failed: Missing required fields');
       toast({
         title: "Error",
         description: "Nama, harga, dan fee produk harus diisi",
@@ -48,20 +50,36 @@ const ProductManagement = () => {
       name: formData.name,
       price: parseInt(formData.price),
       fee: parseInt(formData.fee),
-      image: formData.image || 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=300'
+      image: formData.image || 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=300',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
+    
+    console.log('Prepared product data:', productData);
 
-    if (editingProduct) {
-      updateProduct(editingProduct.id, productData);
+    try {
+      if (editingProduct) {
+        console.log('Updating product:', editingProduct.id, productData);
+        await updateProduct(editingProduct.id, productData);
+        toast({
+          title: "Produk Diperbarui!",
+          description: `${productData.name} berhasil diperbarui`,
+        });
+      } else {
+        console.log('Adding new product:', productData);
+        const result = await addProduct(productData);
+        console.log('Add product result:', result);
+        toast({
+          title: "Produk Ditambahkan!",
+          description: `${productData.name} berhasil ditambahkan`,
+        });
+      }
+    } catch (error) {
+      console.error('Error handling product:', error);
       toast({
-        title: "Produk Diperbarui!",
-        description: `${productData.name} berhasil diperbarui`,
-      });
-    } else {
-      addProduct(productData);
-      toast({
-        title: "Produk Ditambahkan!",
-        description: `${productData.name} berhasil ditambahkan`,
+        title: "Error!",
+        description: `Terjadi kesalahan: ${error.message}`,
+        variant: "destructive",
       });
     }
 
