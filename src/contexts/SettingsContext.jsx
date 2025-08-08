@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { db } from '@/firebase';
+import { doc, onSnapshot, updateDoc, collection } from 'firebase/firestore';
 
 const SettingsContext = createContext();
 
@@ -72,16 +74,21 @@ const hexToHslString = (hex, defaultHsl) => {
 
 export const SettingsProvider = ({ children }) => {
   const dataContext = useData();
-  const [settings, setSettings] = useState(() => {
-    try {
-      const storedSettings = localStorage.getItem('appSettings');
-      const parsedSettings = storedSettings ? JSON.parse(storedSettings) : {};
-      return { ...defaultSettings, ...parsedSettings };
-    } catch (error) {
-      console.error("Failed to load settings from localStorage", error);
-      return defaultSettings;
-    }
-  });
+  const [settings, setSettings] = useState(defaultSettings);
+  const [settingsId, setSettingsId] = useState(null);
+
+  // Listen to settings from Firestore
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'settings'), (snapshot) => {
+      if (!snapshot.empty) {
+        const settingsDoc = snapshot.docs[0];
+        setSettingsId(settingsDoc.id);
+        setSettings({ ...defaultSettings, ...settingsDoc.data() });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const applySettings = useCallback((settingsToApply) => {
     const root = document.documentElement;
@@ -128,19 +135,31 @@ export const SettingsProvider = ({ children }) => {
     }
   }, [settings.isAutoResetEnabled, settings.autoResetTime, dataContext]);
 
-  const updateSettings = (newSettings) => {
-    const updatedSettings = { ...settings, ...newSettings };
-    setSettings(updatedSettings);
+  const updateSettings = async (newSettings) => {
     try {
-      localStorage.setItem('appSettings', JSON.stringify(updatedSettings));
+      const updatedSettings = { ...settings, ...newSettings };
+      if (settingsId) {
+        await updateDoc(doc(db, 'settings', settingsId), updatedSettings);
+      } else {
+        throw new Error('Settings document not found');
+      }
     } catch (error) {
-      console.error("Failed to save settings to localStorage", error);
+      console.error('Error updating settings:', error);
+      throw error;
     }
   };
   
-  const resetSettings = () => {
-    setSettings(defaultSettings);
-    localStorage.removeItem('appSettings');
+  const resetSettings = async () => {
+    try {
+      if (settingsId) {
+        await updateDoc(doc(db, 'settings', settingsId), defaultSettings);
+      } else {
+        throw new Error('Settings document not found');
+      }
+    } catch (error) {
+      console.error('Error resetting settings:', error);
+      throw error;
+    }
   };
 
   const toggleTheme = () => {

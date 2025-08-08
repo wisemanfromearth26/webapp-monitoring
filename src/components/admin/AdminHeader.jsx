@@ -4,7 +4,8 @@ import { LogOut } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
 
 const AdminHeader = ({ user, onLogout }) => {
-  const { settings } = useSettings();
+  const { settings = {} } = useSettings();
+  const userName = user?.name || 'Admin';
 
   return (
     <div className="bg-card shadow-sm border-b">
@@ -15,7 +16,7 @@ const AdminHeader = ({ user, onLogout }) => {
               <img src={settings.logo} alt="App Logo" className="h-10 w-auto object-contain" />
             ) : (
               <div className="w-10 h-10 brand-gradient rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">{user.name.charAt(0)}</span>
+                <span className="text-white font-bold text-lg">{userName.charAt(0)}</span>
               </div>
             )}
           </div>

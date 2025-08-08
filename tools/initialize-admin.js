@@ -18,11 +18,16 @@ const db = getFirestore(app);
 
 const createAdminUser = async () => {
   try {
+    console.log('Checking Firebase configuration...');
+    
     // Create admin user in Firebase Auth
+    console.log('Creating admin user...');
     const userCredential = await createUserWithEmailAndPassword(auth, 'admin@example.com', 'admin123');
     const { user } = userCredential;
+    console.log('Admin user created in Authentication');
 
     // Create admin document in Firestore
+    console.log('Creating admin document in Firestore...');
     await setDoc(doc(db, 'admins', user.uid), {
       email: 'admin@example.com',
       name: 'Admin',
@@ -30,10 +35,32 @@ const createAdminUser = async () => {
       createdAt: new Date().toISOString()
     });
 
-    console.log('Admin user created successfully');
+    console.log('Success! Admin user created with:');
+    console.log('Email: admin@example.com');
+    console.log('Password: admin123');
     process.exit(0);
   } catch (error) {
-    console.error('Error creating admin:', error);
+    if (error.code === 'auth/configuration-not-found') {
+      console.error('\nError: Firebase Authentication is not configured.');
+      console.error('\nPlease follow these steps:');
+      console.error('1. Go to Firebase Console');
+      console.error('2. Select your project');
+      console.error('3. Click "Authentication" in the left sidebar');
+      console.error('4. Click "Get Started"');
+      console.error('5. In the "Sign-in method" tab:');
+      console.error('   - Click "Email/Password"');
+      console.error('   - Enable it');
+      console.error('   - Click "Save"');
+      console.error('\nThen try running this command again.');
+    } else if (error.code === 'auth/email-already-in-use') {
+      console.log('\nAdmin user already exists!');
+      console.log('You can use these credentials to login:');
+      console.log('Email: admin@example.com');
+      console.log('Password: admin123');
+      process.exit(0);
+    } else {
+      console.error('Error creating admin:', error);
+    }
     process.exit(1);
   }
 };

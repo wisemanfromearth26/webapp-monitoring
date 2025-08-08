@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
+import { db } from '@/firebase';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
 import AdminHeader from '@/components/admin/AdminHeader';
@@ -21,10 +23,15 @@ import SettingsManagement from '@/components/admin/SettingsManagement';
 
 
 const AdminDashboard = () => {
-  const { user, logout } = useAuth();
+  const { currentUser, userRole, userDetails, logout } = useAuth();
   const { products, drivers, locations, sales, attendance, schedule } = useData();
   const [stats, setStats] = useState({});
   const [chartData, setChartData] = useState({});
+
+  // Redirect jika bukan admin
+  if (userRole !== 'admin') {
+    return <Navigate to="/login" replace />;
+  }
 
   useEffect(() => {
     calculateStats();
@@ -154,7 +161,7 @@ const AdminDashboard = () => {
     const allDrivers = drivers; // Include inactive drivers for historical data
     return Object.entries(currentStats.driverPerformance || {})
       .map(([driverId, data]) => {
-        const driver = allDrivers.find(d => d.id === parseInt(driverId));
+        const driver = allDrivers.find(d => d.id === driverId);
         return {
           name: driver ? driver.name : `Driver (ID: ${driverId})`,
           ...data
@@ -179,7 +186,7 @@ const AdminDashboard = () => {
         <meta name="description" content="Dashboard admin untuk monitoring penjualan dan manajemen driver" />
       </Helmet>
 
-      <AdminHeader user={user} onLogout={logout} />
+      <AdminHeader user={userDetails} onLogout={logout} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="dashboard" className="space-y-6">
